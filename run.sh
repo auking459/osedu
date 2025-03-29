@@ -11,11 +11,10 @@ SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 ROOT_DIR=$(git rev-parse --show-toplevel)
 WORK_DIR="${ROOT_DIR}/.work"
 TOOLCHAIN_DIR="${WORK_DIR}/toolchains"
-# RISCV64_TOOLCHAIN_PATH="${TOOLCHAIN_DIR}/riscv/bin"
-# RISCV64_CROSS_TOOLCHAIN="${RISCV64_TOOLCHAIN_PATH}/riscv64-unknown-linux-gnu-"
+EGOS_DIR="${WORK_DIR}/egos-2000"
 
-RISCV32_TOOLCHAIN_PATH="${TOOLCHAIN_DIR}/riscv/bin"
-RISCV32_CROSS_TOOLCHAIN="${RISCV32_TOOLCHAIN_PATH}/riscv32-unknown-linux-gnu-"
+RISCV32_TOOLCHAIN_PATH="${TOOLCHAIN_DIR}/xpack-riscv-none-elf-gcc-14.2.0-3/bin"
+RISCV32_CROSS_TOOLCHAIN="${RISCV32_TOOLCHAIN_PATH}/riscv-none-elf-"
 
 QEMU_VERSION="9.2.0"
 QEMU_DIR="${WORK_DIR}/qemu-${QEMU_VERSION}"
@@ -42,34 +41,14 @@ function prepare_toolchains {
     echo "🚀 Preparing toolchains..."
 
     UBUNTU_VERSION=$(lsb_release -rs)
-    TAG="2025.01.20"
-    TOOLCHAIN_URL="https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download"
-    FILENAME="riscv64-glibc-ubuntu-${UBUNTU_VERSION}-llvm-nightly-${TAG}-nightly.tar.xz"
-
-    if [ ! -d "${RISCV64_TOOLCHAIN_PATH}" ]; then
-        mkdir -p "${TOOLCHAIN_DIR}"
-        cd "${TOOLCHAIN_DIR}"
-        wget "${TOOLCHAIN_URL}/${TAG}/${FILENAME}"
-        tar -xf "${FILENAME}"
-        rm "${FILENAME}"
-        cd -
-    fi
-
-    echo "🎉 Toolchains prepared!"
-}
-
-function prepare_toolchains_riscv32 {
-    echo "🚀 Preparing toolchains..."
-
-    UBUNTU_VERSION=$(lsb_release -rs)
-    TAG="2025.01.20"
-    TOOLCHAIN_URL="https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download"
-    FILENAME="riscv32-glibc-ubuntu-${UBUNTU_VERSION}-llvm-nightly-${TAG}-nightly.tar.xz"
+    GCC_VER="14.2.0-3"
+    TOOLCHAIN_URL="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${GCC_VER}"
+    FILENAME="xpack-riscv-none-elf-gcc-${GCC_VER}-linux-x64.tar.gz"
 
     if [ ! -d "${RISCV32_TOOLCHAIN_PATH}" ]; then
         mkdir -p "${TOOLCHAIN_DIR}"
         cd "${TOOLCHAIN_DIR}"
-        wget "${TOOLCHAIN_URL}/${TAG}/${FILENAME}"
+        wget "${TOOLCHAIN_URL}/${FILENAME}"
         tar -xf "${FILENAME}"
         rm "${FILENAME}"
         cd -
@@ -118,7 +97,7 @@ function prepare_egos {
 
     cd "${SRC_DIR}"
 
-    export CROSS_COMPILE="${RISCV32_CROSS_TOOLCHAIN}"
+    export PATH=${PATH}:${RISCV32_TOOLCHAIN_PATH}
 
     make
 
@@ -145,14 +124,11 @@ function setup {
 function run_qemu {
     echo "🚀 Running QEMU..."
 
-    ARGS=(
-        -machine virt
-        -nographic
-        -smp 1
-        -bios "${RISCV_IMAGES_DIR}/${EGOS_BIN}"
-    )
+    cd ${EGOS_DIR}
 
-    "${QEMU_BIN}" "${ARGS[@]}" "${@}"
+    export PATH=${PATH}:${RISCV32_TOOLCHAIN_PATH}:"${QEMU_BUILD_DIR}"
+
+    make qemu
 }
 
 function run_gdb {
